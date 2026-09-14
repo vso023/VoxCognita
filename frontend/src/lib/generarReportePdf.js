@@ -141,7 +141,8 @@ function escribirAvisoDestacado(doc, texto, y) {
 }
 
 // Arma el documento completo, en el orden pedido: aviso arriba, datos del
-// paciente, fecha del analisis, clasificacion + confianza, probabilidades,
+// paciente, fecha del analisis, clasificacion + categoria de confianza
+// (nunca el numero/porcentaje por clase — mismo criterio que la pantalla),
 // reporte redactado, transcripcion, aviso repetido al pie.
 export function construirReportePdf(doc, analisis, paciente) {
   const etiquetaConfianza = categorizarConfianza(analisis.confianza);
@@ -178,14 +179,6 @@ export function construirReportePdf(doc, analisis, paciente) {
   y = escribirParrafo(doc, `Resultado: ${analisis.clasificacion}`, y, { negrita: true });
   y = escribirParrafo(doc, `Categoría de confianza: ${etiquetaConfianza}`, y, { negrita: true });
   y += 3;
-
-  if (analisis.probabilidades) {
-    y = escribirTituloSeccion(doc, "Probabilidades por clase", y);
-    for (const [clase, p] of Object.entries(analisis.probabilidades)) {
-      y = escribirParrafo(doc, `${clase}: ${(p * 100).toFixed(0)}%`, y);
-    }
-    y += 3;
-  }
 
   y = escribirTituloSeccion(doc, "Reporte", y);
   y = escribirParrafo(doc, analisis.reporte?.contenido, y);

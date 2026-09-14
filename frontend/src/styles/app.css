@@ -977,12 +977,6 @@ textarea {
   color: var(--text-primary);
 }
 
-.report__transcript-note {
-  margin-bottom: var(--space-3);
-  font-size: var(--font-size-xs);
-  color: var(--text-secondary);
-}
-
 /* ── Utilidades ──────────────────────────────────────────────────── */
 .visually-hidden {
   position: absolute;
