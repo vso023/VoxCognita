@@ -115,6 +115,132 @@ function escribirParrafo(doc, texto, y, opciones = {}) {
   return y;
 }
 
+// ── Markdown → jsPDF ────────────────────────────────────────────────────
+// El reporte del LLM llega en Markdown. Se interpreta el subconjunto que el
+// modelo usa (títulos #, **negrita**, *cursiva*, listas -/*/1., ---) y se
+// escribe con estilos reales en vez de volcar los símbolos como texto.
+
+// "a **b** c" -> [{texto:"a ", estilo:"normal"}, {texto:"b", estilo:"bold"}, ...]
+function parsearInline(texto, estiloBase = "normal") {
+  const tokens = [];
+  const re = /(\*\*|__)(.+?)\1|(\*|_)(?=\S)(.+?)(?<=\S)\3/g;
+  let ultimo = 0;
+  let m;
+  while ((m = re.exec(texto)) !== null) {
+    if (m.index > ultimo) tokens.push({ texto: texto.slice(ultimo, m.index), estilo: estiloBase });
+    if (m[1]) tokens.push({ texto: m[2], estilo: "bold" });
+    else tokens.push({ texto: m[4], estilo: estiloBase === "bold" ? "bolditalic" : "italic" });
+    ultimo = re.lastIndex;
+  }
+  if (ultimo < texto.length) tokens.push({ texto: texto.slice(ultimo), estilo: estiloBase });
+  return tokens;
+}
+
+// Escribe un párrafo con estilos mezclados, haciendo el salto de línea
+// palabra por palabra midiendo cada una con su fuente real.
+function escribirInline(doc, texto, y, opciones = {}) {
+  const {
+    x = MARGEN,
+    tamanoFuente = 10,
+    color = COLOR_TEXTO,
+    interlineado = 5,
+    estiloBase = "normal",
+  } = opciones;
+  const anchoMax = MARGEN + anchoUtilDe(doc) - x;
+  doc.setFontSize(tamanoFuente);
+  doc.setTextColor(...color);
+
+  const palabras = [];
+  for (const { texto: t, estilo } of parsearInline(texto, estiloBase)) {
+    for (const parte of t.split(/(\s+)/)) {
+      if (parte !== "") palabras.push({ texto: parte, estilo });
+    }
+  }
+
+  let linea = [];
+  let anchoLinea = 0;
+  const volcar = () => {
+    while (linea.length && /^\s+$/.test(linea[linea.length - 1].texto)) linea.pop();
+    if (!linea.length) return;
+    y = nuevaPaginaSiHaceFalta(doc, y, interlineado);
+    let cursor = x;
+    for (const p of linea) {
+      doc.setFont(undefined, p.estilo);
+      doc.text(p.texto, cursor, y);
+      cursor += p.ancho;
+    }
+    y += interlineado;
+    linea = [];
+    anchoLinea = 0;
+  };
+
+  for (const p of palabras) {
+    doc.setFont(undefined, p.estilo);
+    const ancho = doc.getTextWidth(p.texto);
+    const esEspacio = /^\s+$/.test(p.texto);
+    if (!esEspacio && anchoLinea + ancho > anchoMax && linea.length) volcar();
+    if (esEspacio && !linea.length) continue;
+    linea.push({ ...p, ancho });
+    anchoLinea += ancho;
+  }
+  volcar();
+  return y;
+}
+
+function escribirMarkdown(doc, markdown, y) {
+  const lineas = String(markdown ?? "").replace(/\r\n?/g, "\n").split("\n");
+  let parrafo = [];
+
+  const cerrarParrafo = () => {
+    if (!parrafo.length) return;
+    y = escribirInline(doc, parrafo.join(" "), y);
+    y += 2.5;
+    parrafo = [];
+  };
+
+  for (const crudo of lineas) {
+    const linea = crudo.trim();
+    let m;
+    if (linea === "") {
+      cerrarParrafo();
+    } else if (/^(-{3,}|\*{3,}|_{3,})$/.test(linea)) {
+      cerrarParrafo();
+      y = nuevaPaginaSiHaceFalta(doc, y, 6);
+      doc.setDrawColor(...COLOR_LINEA);
+      doc.setLineWidth(0.2);
+      doc.line(MARGEN, y, MARGEN + anchoUtilDe(doc), y);
+      y += 5;
+    } else if ((m = linea.match(/^(#{1,6})\s+(.*?)\s*#*$/))) {
+      cerrarParrafo();
+      const nivel = m[1].length;
+      const tamano = nivel === 1 ? 14 : nivel === 2 ? 12 : 11;
+      y = nuevaPaginaSiHaceFalta(doc, y, tamano * 0.6 + 4);
+      y += 2;
+      y = escribirInline(doc, m[2], y, {
+        tamanoFuente: tamano,
+        interlineado: tamano * 0.5 + 1.5,
+        estiloBase: "bold",
+      });
+      y += 1.5;
+    } else if ((m = linea.match(/^([-*+]|\d+[.)])\s+(.*)$/))) {
+      cerrarParrafo();
+      const marca = /\d/.test(m[1]) ? m[1] : "•";
+      const sangria = MARGEN + 5;
+      y = nuevaPaginaSiHaceFalta(doc, y, 5);
+      doc.setFont(undefined, "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(...COLOR_TEXTO);
+      doc.text(marca, MARGEN + 1, y);
+      y = escribirInline(doc, m[2], y, { x: sangria });
+      y += 1;
+    } else {
+      parrafo.push(linea.replace(/^>\s?/, ""));
+    }
+  }
+  cerrarParrafo();
+  return y;
+}
+
 // Recuadro destacado para el aviso: siempre en la parte de arriba del
 // documento, con fondo/borde de advertencia (mismos tonos que
 // --warning-background/--warning-border en app.css).
@@ -181,7 +307,7 @@ export function construirReportePdf(doc, analisis, paciente) {
   y += 3;
 
   y = escribirTituloSeccion(doc, "Reporte", y);
-  y = escribirParrafo(doc, analisis.reporte?.contenido, y);
+  y = escribirMarkdown(doc, analisis.reporte?.contenido, y);
   y += 3;
 
   y = escribirTituloSeccion(doc, "Transcripción del audio analizado", y);

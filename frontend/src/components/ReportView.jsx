@@ -1,4 +1,5 @@
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
 import DisclaimerBanner from "./DisclaimerBanner.jsx";
 import { IconAlertCircle, IconCheckCircle, IconDownload } from "./icons.jsx";
 import { construirNombreArchivo, construirReportePdf } from "../lib/generarReportePdf.js";
@@ -87,7 +88,9 @@ export default function ReportView({ analisis, paciente }) {
 
       <section>
         <h3 className="section-card__title" style={{ marginBottom: 12 }}>Reporte</h3>
-        <div className="report__body">{analisis.reporte?.contenido}</div>
+        <div className="report__body">
+          <ReactMarkdown>{analisis.reporte?.contenido ?? ""}</ReactMarkdown>
+        </div>
       </section>
     </div>
   );

@@ -971,10 +971,30 @@ textarea {
   background: var(--surface-soft);
   border-radius: var(--radius-md);
   padding: var(--space-5);
-  white-space: pre-wrap;
   line-height: var(--line-height-normal);
   font-size: var(--font-size-sm);
   color: var(--text-primary);
+}
+.report__body > :first-child { margin-top: 0; }
+.report__body > :last-child { margin-bottom: 0; }
+.report__body h1,
+.report__body h2,
+.report__body h3 {
+  margin: 1.25em 0 0.5em;
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+.report__body h1 { font-size: 1.25em; }
+.report__body h2 { font-size: 1.125em; }
+.report__body h3 { font-size: 1em; }
+.report__body p { margin: 0 0 0.9em; }
+.report__body ul,
+.report__body ol { margin: 0 0 0.9em; padding-left: 1.5em; }
+.report__body li { margin-bottom: 0.3em; }
+.report__body hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 1.25em 0;
 }
 
 /* ── Utilidades ──────────────────────────────────────────────────── */
